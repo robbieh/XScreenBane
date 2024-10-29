@@ -1,0 +1,38 @@
+
+
+= Hacks =
+
+* arp-sigils
+* other sigils?
+* transparent gradient moving blocks
+* sci-fi circles
+* hex traces
+* filesystem ring tree
+* something deco
+* oscilloscope
+
+= System data sources =
+
+* arp
+* process table
+* network IO bytes (/proc/net/dev)
+* open ports (tcpdump)
+* net scan (nmap)
+* systemd services
+* /proc/meminfo
+* /proc/stat
+* /proc/net/tcp
+
+= Other data sources =
+
+* checkmk
+* hass
+* rtl-sdr
+
+= Color =
+
+palettes and gradients
+named
+seasonally generated
+day-cycle generated
+

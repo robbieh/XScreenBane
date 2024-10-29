@@ -1,0 +1,1 @@
+{:config-in-ns {com.rpl.specter {:linters {:unresolved-symbol {:level :off}}}}}
