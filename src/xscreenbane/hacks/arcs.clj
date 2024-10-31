@@ -51,7 +51,7 @@
 ;take a hashmap from tcp-ports module and translate to a visual arc
 ;have to track arc's position in state atom and update that
 
-(defn update-arc [{:keys [lport state] :as portmap}]
+(defn update-arc [{:keys [lport state sockrefs] :as portmap}]
   ;(println portmap)
   (if (select-one [ATOM :arcs lport] hackstate)
     ;update it in place
@@ -61,18 +61,62 @@
     ;else add it
     (transform [ATOM :arcs lport]
                (fn [x] (merge {:radius (* (:arcwidth @hackstate) lport)
-                :length 0.5
+                :length (* 0.1 (inc (Integer/parseInt sockrefs)))
                 :color  (get state-color-map state)
                 :cap nil
                 :speed (+ 0.001 (* 0.02 (rand)))
                 :theta 0 }))
-               hackstate)
-    ))
+               hackstate)))
+
+
+
+(let [open-ports    (set (map :lport @tcpp/open-ports))
+      tracked-ports (set (keys (:arcs @hackstate)))
+      diff          (clojure.set/difference tracked-ports open-ports)
+      closed-ports  (select-keys (:arcs @hackstate) diff)
+      now           (System/currentTimeMillis)
+      old           (- (System/currentTimeMillis) (* 1000 60))
+      closed-ports  (transform [MAP-VALS] #(assoc % :date now) closed-ports)
+      ]
+    ;(transform [ATOM :arcs MAP-KEYS diff] NONE hackstate)
+    ;closed-ports
+    ;(transform [ATOM :closed] (fn [m] (merge closed-ports)) hackstate)
+    ;(select [ATOM :closed]  hackstate)
+    ;(transform [ATOM :closed MAP-VALS :date VAL #(< % old) ] NONE  hackstate)
+    ;(select [ATOM :closed MAP-VALS (fn [k] (filterer (< (:date k) old)) ) ] hackstate)
+    ;(select [ATOM :closed (fn [k] (filterer (< (:date k) old)) ) ] hackstate)
+    ;(transform [ATOM :closed MAP-VALS (fn [k] (filterer (< (:date k) old)) ) ] NONE hackstate) <- this leaves behind the key
+    ;(transform [ATOM :closed  (fn [k] (filterer (< (:date (val k)) old)) ) ] NONE hackstate)
+    ;(setval [ATOM :closed (selected? MAP-VALS :date #(< % old))] NONE hackstate)
+    ;(setval [ATOM :closed (selected? MAP-VALS )] NONE hackstate)
+    ;(select [ATOM :closed (selected? MAP-VALS :date #(< % old))] hackstate)
+    (setval [ATOM :closed (selected? MAP-VALS :date #(< % old))] NONE hackstate)
+    )
+
+(comment count (keys (:arcs @hackstate)))
+(comment count (keys (:closed @hackstate)))
+(comment (swap! hackstate assoc :closed {}))
+(comment (update-all-arcs))
 
 (defn update-all-arcs []
   (tcpp/get-tcp)
   (doseq [arc @tcpp/open-ports ]
-    (update-arc arc)))
+    (update-arc arc))
+  ;now handle closed ports - they'll be missing from tcpp/open-ports
+  ;add them to :closed in @hackstate
+  (let [open-ports    (set (map :lport @tcpp/open-ports))
+        tracked-ports (set (keys (:arcs @hackstate)))
+        diff          (clojure.set/difference tracked-ports open-ports)
+        closed-ports  (select-keys (:arcs @hackstate) diff)
+        now           (System/currentTimeMillis)
+        old           (- (System/currentTimeMillis) (* 1000 60))
+        closed-ports  (transform [MAP-VALS] #(assoc % :date now) closed-ports)
+        ]
+    ;(transform [ATOM :closed ALL ] (fn [m] (merge closed-ports)) hackstate)
+    (transform [ATOM :closed] (fn [m] (merge closed-ports)) hackstate) ;add closed-ports to [@hackstate :closed]
+    (transform [ATOM :arcs MAP-KEYS diff] NONE hackstate) ;remove the closed ports
+    (setval [ATOM :closed (selected? MAP-VALS :date #(< % old))] NONE hackstate) ;remove expired closed ports
+    ))
 
 ;(deref hackstate)
 ;(get-in  {:arcs {1 "Abc"}} [:arcs 1])
@@ -91,14 +135,15 @@
                         :maxradius (* 0.5 height)
                         :arcwidth (/ (* 1 height) 65536)  
                         :arcs {}
+                        :closed {}
                         :canvas  (c2dhelper/canvas-from-bufferedimage canvas)
                         })
   ))
 ;(update-arc (first @tcpp/open-ports))
-(apply max (keys (:arcs @hackstate)))
-    (for [{:keys [radius length color theta] :as arc} (:arcs @hackstate)]
-      [radius theta]
-      )
+;(comment apply max (keys (:arcs @hackstate)))
+;    (for [{:keys [radius length color theta] :as arc} (:arcs @hackstate)]
+;      [radius theta]
+;      )
 
 (defn draw [^BufferedImage canvas]
   (update-all-arcs)
@@ -110,13 +155,22 @@
     (.clearRect g 0 0 width height)
     ;(println (count (:arcs @hackstate)))
     (doseq [[_portnum {:keys [radius length color theta]}] (:arcs @hackstate)]
+    ;(doseq [port (map :lport @tcpp/open-ports)] 
+      ;(let [{:keys [radius length color theta]} (get-in @hackstate [:arcs port])]
       ;(println radius length color theta)
       ;(.setColor g color)
       (c2d/set-color canvas color)
       ;(let [arc (new Arc2D$Float cx cy radius radius theta length Arc2D/OPEN)] (.draw g arc))
       (c2d/arc canvas cx cy radius radius theta length )
       )
+    (doseq [[_portnum {:keys [radius length color theta]}] (:closed @hackstate)]
+      (c2d/set-color canvas Color/GRAY)
+      (c2d/arc canvas cx cy radius radius theta length )
+      )
+    )
     ;(c2d/arc g cx cy 10 10 0 100 )
 
-    )
   )
+
+;(set (select [ATOM ALL :slowstart] tcpp/open-ports))
+;(set (select [ATOM ALL :sockrefs] tcpp/open-ports))
