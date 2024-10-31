@@ -85,4 +85,9 @@
   (hack/set-up-state canvas)
   (do (hack/draw canvas) (xput canvas))
   (cleanup)
+  (repeatedly 1000 #(do 
+                     (Thread/sleep 10)
+                     (hack/draw canvas) 
+                     (xput canvas)
+                     ))
   )
