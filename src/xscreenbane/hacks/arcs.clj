@@ -1,10 +1,10 @@
 (ns xscreenbane.hacks.arcs
   (:use com.rpl.specter)
   (:require 
-    [xscreenbane.color]
+    [xscreenbane.color :as xsb-color]
     [xscreenbane.clojure2d-helper :as c2dhelper]
     [xscreenbane.fetch.tcp-ports :as tcpp]
-    [clojure2d.color :as color]
+    [clojure2d.color :as c2color]
     [clojure2d.core :as c2d]
     )
   (:import
@@ -32,7 +32,7 @@
   (first @tcpp/open-ports))
 
 ;need to incorporate new ideas about color schemes, but simple mapping will help with getting this going
-(def state-color-map
+(comment def state-color-map
   {
    "01" Color/GREEN
    "02" Color/CYAN
@@ -47,6 +47,24 @@
    "0B" Color/ORANGE
    "0C" Color/BLUE
    })
+(def palette (:greenpunk xsb-color/palettes))
+(def state-color-map
+  {
+   "01" (get-in palette [:lines :standard :line] )
+   "02" (get-in palette [:lines :alert :line] )
+   "03" (get-in palette [:lines :alert :line] )
+   "04" (get-in palette [:lines :alternate :line] )
+   "05" (get-in palette [:lines :alternate :line] )
+   "06" (get-in palette [:lines :alternate :line] )
+   "07" (get-in palette [:gradients :new-old 1] )
+   "08" (get-in palette [:lines :highlight :line] )
+   "09" (get-in palette [:lines :alternate :line] )
+   "0A" (get-in palette [:lines :near :line] )
+   "0B" (get-in palette [:lines :highlight :line] )
+   "0C" (get-in palette [:lines :warning :line] )
+   })
+
+
 
 ;take a hashmap from tcp-ports module and translate to a visual arc
 ;have to track arc's position in state atom and update that
@@ -64,7 +82,7 @@
                 :length (* 0.1 (inc (Integer/parseInt sockrefs)))
                 :color  (get state-color-map state)
                 :cap nil
-                :speed (+ 0.001 (* 0.02 (rand)))
+                :speed (+ 0.001 (* 0.01 (rand)))
                 :theta 0 }))
                hackstate)))
 
@@ -109,7 +127,7 @@
         diff          (clojure.set/difference tracked-ports open-ports)
         closed-ports  (select-keys (:arcs @hackstate) diff)
         now           (System/currentTimeMillis)
-        old           (- (System/currentTimeMillis) (* 1000 60))
+        old           (- now (* 10000 60 ))
         closed-ports  (transform [MAP-VALS] #(assoc % :date now) closed-ports)
         ]
     ;(transform [ATOM :closed ALL ] (fn [m] (merge closed-ports)) hackstate)
@@ -124,8 +142,10 @@
   (tcpp/get-tcp)
   (let [width (.getWidth canvas)
         height (.getHeight canvas)
-   ;     arcs (update-arcs)
+        canvas (c2dhelper/canvas-from-bufferedimage canvas)
        ]
+    (c2d/set-font canvas "Hack")
+    (c2d/set-font-attributes canvas 30)
     (alter-var-root #'cx (fn [_] (* 0.5 width)))
     (alter-var-root #'cy (fn [_] (* 0.5 height)))
     (swap! hackstate assoc :width width)
@@ -136,7 +156,7 @@
                         :arcwidth (/ (* 1 height) 65536)  
                         :arcs {}
                         :closed {}
-                        :canvas  (c2dhelper/canvas-from-bufferedimage canvas)
+                        :canvas  canvas
                         })
   ))
 ;(update-arc (first @tcpp/open-ports))
@@ -144,6 +164,32 @@
 ;    (for [{:keys [radius length color theta] :as arc} (:arcs @hackstate)]
 ;      [radius theta]
 ;      )
+
+(defn draw-label [^clojure2d.core.Canvas canvas color text x y texth]
+  (c2d/set-color canvas Color/GRAY)
+  (c2d/rect canvas x y texth texth true)
+  (c2d/text canvas text (+ x texth) (+ y texth))
+  (c2d/set-color canvas (get state-color-map color))
+  (c2d/rect canvas (+ x 2 ) (+ y 2) (- texth 2) (- texth 2 ))
+  )
+
+(defn draw-legend [^clojure2d.core.Canvas canvas]
+  (let [height (:height @hackstate)
+        x      10
+        texth  (nth (c2d/text-bounding-box canvas "Xy") 3)
+        ytop   (- height (* 9 texth))
+        ys     (range ytop height texth)
+        _       (println texth)
+        labels ["Established" "SYN sent/received" "FIN wait 1/2" "Time wait" "Closed"
+   "Close wait / closing" "Last ACK" "Listening" "New SYN received"]
+        colors ["01" "02" "04" "06" "07" "08" "09" "0A" "0C"]
+
+        ]
+    (doall(map draw-label
+        (repeat canvas) colors labels (repeat x) ys (repeat texth)
+      ))
+    )
+  )
 
 (defn draw [^BufferedImage canvas]
   (update-all-arcs)
@@ -167,10 +213,11 @@
       (c2d/set-color canvas Color/GRAY)
       (c2d/arc canvas cx cy radius radius theta length )
       )
+    (draw-legend canvas)
     )
     ;(c2d/arc g cx cy 10 10 0 100 )
-
   )
 
+(type (:canvas @hackstate))
 ;(set (select [ATOM ALL :slowstart] tcpp/open-ports))
 ;(set (select [ATOM ALL :sockrefs] tcpp/open-ports))
