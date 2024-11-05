@@ -1,2 +1,9 @@
 
+= XScreenBane - the bane of boredom for your XScreenSaver =
+
+
+
+== Installation ==
+
+== Development ==
 
