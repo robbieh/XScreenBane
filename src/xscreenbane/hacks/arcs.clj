@@ -164,6 +164,7 @@
                         :arcs {}
                         :closed {}
                         :canvas  canvas
+                        :legend-endtime (+ (System/currentTimeMillis) (* 1000 60))
                         })
   ))
 ;(update-arc (first @tcpp/open-ports))
@@ -186,7 +187,6 @@
         texth  (nth (c2d/text-bounding-box canvas "Xy") 3)
         ytop   (- height (* 9 texth))
         ys     (range ytop height texth)
-        _       (println texth)
         labels ["Established" "SYN sent/received" "FIN wait 1/2" "Time wait" "Closed"
    "Close wait / closing" "Last ACK" "Listening" "New SYN received"]
         colors ["01" "02" "04" "06" "07" "08" "09" "0A" "0C"]
@@ -198,10 +198,9 @@
     )
   )
 
-(defn draw [^BufferedImage canvas]
+(defn draw [^BufferedImage _]
   (update-all-arcs)
-  (let [g (.getGraphics canvas)
-        canvas (:canvas @hackstate)
+  (let [canvas (:canvas @hackstate)
         width (:width @hackstate)
         height (:height @hackstate) ]
     ;(.setStroke g (new BasicStroke 1))
@@ -222,11 +221,13 @@
       (c2d/set-color canvas (get-in palette [:lines :near :line]))
       (c2d/arc canvas cx cy radius radius theta length )
       )
-    (draw-legend canvas)
+    (when (> (:legend-endtime @hackstate) (System/currentTimeMillis))
+      (draw-legend canvas)
+           )
     )
     ;(c2d/arc g cx cy 10 10 0 100 )
   )
 
-(type (:canvas @hackstate))
+;(type (:canvas @hackstate))
 ;(set (select [ATOM ALL :slowstart] tcpp/open-ports))
 ;(set (select [ATOM ALL :sockrefs] tcpp/open-ports))
