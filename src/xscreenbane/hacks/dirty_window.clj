@@ -29,7 +29,7 @@
 (defn set-up-state [^BufferedImage canvas]
   (let [width    (.getWidth canvas)
         height   (.getHeight canvas)
-        boxsize  (/ (min width height) 10)
+        boxsize  (/ (min width height) 20)
         gap      2
         ;gradient (mapv #(color/set-alpha % 200) (:greens c/gradients))
         gradient (:greens c/gradients)

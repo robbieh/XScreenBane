@@ -3,45 +3,22 @@
  :greenpunk {
              :background :black
              :lines {
-               :standard {
-                          :line :green
-                          :fill :darkgreen
-                          }
-               :near     {
-                          :line :lime
-                          :fill :green
-                          }
-               :alternate {
-                           :line :cyan
-                           :fill :blue
-                           }
-               :highlight {
-                           :line :magenta
-                           :fill :purple
-                           }
-               :alert {
-                       :line :magenta
-                       :fill :purple
-                       }
-               :warning {
-                         :line :yellow
-                         :fill :orange
-                         }
-                     }
+               :standard  {:line :green :fill :darkgreen}
+               :near      {:line :lime :fill :green}
+               :alternate {:line :cyan :fill :blue}
+               :highlight {:line :magenta :fill :purple}
+               :alert     {:line :magenta :fill :purple}
+               :warning   {:line :yellow :fill :orange}
+               }
              :gradients {
-
-                         :warning-safe  [:yellow :green]
-                         :hot-cold [:magenta :cyan]
-                         :new-old [:lime :gray]
-                         }
-
+               :warning-safe  [:yellow :green]
+               :hot-cold [:magenta :cyan]
+               :new-old [:lime :gray]
+               }
              }
  :grayscale {
              :background :black
-             :standard {
-                        :line :white
-                        :fill :gray
-                        }
+             :standard {:line :white :fill :gray}
 
              }
  }

@@ -11,7 +11,10 @@
                  [com.github.oshi/oshi-core "6.6.3"]
                  [com.rpl/specter "1.1.4"]
                  ]
-  :main ^:skip-aot xscreenbane.core
+  ;:main ^:skip-aot xscreenbane.core
+  ;:main xscreenbane.core
+  :main xscreenbane.main
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all
-                       :jvm-opts ["-Dclojure.compiler.direct-linking=true"]}})
+  :resource-paths ["resources"]
+  :aot [clojure2d.core clojure2d.color]
+  :profiles {:uberjar { :jvm-opts ["-Dclojure.compiler.direct-linking=true"]}})

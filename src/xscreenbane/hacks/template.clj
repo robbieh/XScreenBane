@@ -10,7 +10,7 @@
 
 (def state (atom {}))
 
-(defn set-up-state [^BufferedImage canvas]
+(defn set-up-state [^BufferedImage canvas args]
   (let [width (.getWidth canvas)
         height (.getHeight canvas)
        ]

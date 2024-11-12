@@ -1,17 +1,17 @@
 (ns xscreenbane.hacks.arcs
   (:use com.rpl.specter)
   (:require 
+    [xscreenbane.utils.cli :as cli]
     [xscreenbane.color :as xsb-color]
     [xscreenbane.clojure2d-helper :as c2dhelper]
     [xscreenbane.fetch.tcp-ports :as tcpp]
-    [clojure2d.color :as c2color]
     [clojure2d.core :as c2d]
     )
   (:import
     [java.awt.image BufferedImage]
-    [java.awt Graphics Graphics2D]
-    [java.awt BasicStroke Color RenderingHints]
-    [java.awt.geom Arc2D Arc2D$Float]
+  ;  [java.awt Graphics Graphics2D]
+  ;  [java.awt BasicStroke Color RenderingHints]
+  ;  [java.awt.geom Arc2D Arc2D$Float]
     )
   )
 
@@ -24,6 +24,7 @@
 ; time_wait   -|--|- alert
 ; closed      ------ inactive
 
+(def palette (:greenpunk xsb-color/palettes))
 (def hackstate (atom {}))
 (def cx 0)
 (def cy 0)
@@ -31,23 +32,7 @@
 (comment 
   (first @tcpp/open-ports))
 
-;need to incorporate new ideas about color schemes, but simple mapping will help with getting this going
-(comment def state-color-map
-  {
-   "01" Color/GREEN
-   "02" Color/CYAN
-   "03" Color/CYAN
-   "04" Color/YELLOW
-   "05" Color/YELLOW
-   "06" Color/MAGENTA
-   "07" Color/GRAY
-   "08" Color/ORANGE
-   "09" Color/RED
-   "0A" "#00FFDD"
-   "0B" Color/ORANGE
-   "0C" Color/BLUE
-   })
-(def palette (:greenpunk xsb-color/palettes))
+
 (def state-color-map
   {
    "01" (get-in palette [:lines :standard :line] )
@@ -138,12 +123,34 @@
 
 ;(deref hackstate)
 ;(get-in  {:arcs {1 "Abc"}} [:arcs 1])
-(defn set-up-state [^BufferedImage canvas]
+(defn set-up-state [^BufferedImage canvas args]
   (tcpp/get-tcp)
   (let [width (.getWidth canvas)
         height (.getHeight canvas)
         canvas (c2dhelper/canvas-from-bufferedimage canvas)
        ]
+    (println "Args"  args)
+    (when-let  [palette-from-cli (keyword (cli/pair-get args :palette))]
+      (println "Arg pal" palette-from-cli)
+      (when-let [palette-from-config (get xsb-color/palettes palette-from-cli)]
+        (println "found pal" palette-from-config)
+        (alter-var-root #'palette (fn [_] palette-from-config))
+        (alter-var-root #'state-color-map (fn [_] {
+                                             "01" (get-in palette [:lines :standard :line] )
+                                             "02" (get-in palette [:lines :alert :line] )
+                                             "03" (get-in palette [:lines :alert :line] )
+                                             "04" (get-in palette [:lines :alternate :line] )
+                                             "05" (get-in palette [:lines :alternate :line] )
+                                             "06" (get-in palette [:lines :alternate :line] )
+                                             "07" (get-in palette [:gradients :new-old 1] )
+                                             "08" (get-in palette [:lines :highlight :line] )
+                                             "09" (get-in palette [:lines :alternate :line] )
+                                             "0A" (get-in palette [:lines :near :line] )
+                                             "0B" (get-in palette [:lines :highlight :line] )
+                                             "0C" (get-in palette [:lines :warning :line] )
+                                             } ))))
+    
+    (println "selected palette" palette)
     (c2d/set-font canvas "Hack")
     (c2d/set-font-attributes canvas 30)
     (alter-var-root #'cx (fn [_] (* 0.5 width)))
@@ -166,7 +173,7 @@
 ;      )
 
 (defn draw-label [^clojure2d.core.Canvas canvas color text x y texth]
-  (c2d/set-color canvas Color/GRAY)
+  (c2d/set-color canvas (get-in palette [:lines :near :line]))
   (c2d/rect canvas x y texth texth true)
   (c2d/text canvas text (+ x texth) (+ y texth))
   (c2d/set-color canvas (get state-color-map color))
@@ -197,8 +204,10 @@
         canvas (:canvas @hackstate)
         width (:width @hackstate)
         height (:height @hackstate) ]
-    (.setStroke g (new BasicStroke 1))
-    (.clearRect g 0 0 width height)
+    ;(.setStroke g (new BasicStroke 1))
+    ;(.clearRect g 0 0 width height)
+    (c2d/set-color canvas (:background palette))
+    (c2d/rect canvas 0 0 width height)
     ;(println (count (:arcs @hackstate)))
     (doseq [[_portnum {:keys [radius length color theta]}] (:arcs @hackstate)]
     ;(doseq [port (map :lport @tcpp/open-ports)] 
@@ -210,7 +219,7 @@
       (c2d/arc canvas cx cy radius radius theta length )
       )
     (doseq [[_portnum {:keys [radius length color theta]}] (:closed @hackstate)]
-      (c2d/set-color canvas Color/GRAY)
+      (c2d/set-color canvas (get-in palette [:lines :near :line]))
       (c2d/arc canvas cx cy radius radius theta length )
       )
     (draw-legend canvas)

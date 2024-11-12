@@ -20,15 +20,18 @@
                      (io/file (System/getenv "HOME") ".xscreenbane-palettes.edn")
                      (io/file (System/getenv "HOME") ".config" "xscreenbane" "palettes.edn")
                      (io/file (System/getenv "XDG_CONFIG_HOME") "xscreenbane" "palettes.edn")
-                     (io/file (io/resource "palettes.edn"))
-                   ]]
+                   ]
+        resource-config (-> "palettes.edn" io/resource io/reader PushbackReader. edn/read)
+        ]
+    (println "color config" config-files)
+    (println "color config exists" (->> config-files (filter #(.exists %))))
   (->> config-files 
      (filter #(.exists %))
      (mapv io/reader)
      (mapv #(PushbackReader. %))
      (mapv edn/read)
      ;add a spec step here, once the spec is known
-     (apply merge)
+     (apply merge resource-config)
      ;(select  [(recursive-path [] p (if-path map? (continue-then-stay MAP-VALS p))) MAP-VAL])
      ;(select  [(recursive-path [] p (if-path map? [p MAP-VALS])) ])
      ;(select  [(recursive-path [] p (if-path map? [MAP-VALS p] [STAY]))] )
@@ -37,8 +40,3 @@
      
      ))
   )
-
-
- 
-
-
