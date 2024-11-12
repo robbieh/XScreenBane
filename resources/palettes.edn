@@ -11,6 +11,7 @@
                :warning   {:line :yellow :fill :orange}
                }
              :gradients {
+               :standard ["#00ff88" "#88ff00"]
                :warning-safe  [:yellow :green]
                :hot-cold [:magenta :cyan]
                :new-old [:lime :gray]

@@ -7,9 +7,7 @@
     )
   (:import
     [java.awt.image BufferedImage]
-    [java.awt Graphics Graphics2D]
-    [java.awt BasicStroke Color RenderingHints]
-    [java.awt.geom Arc2D Arc2D$Float])
+    )
   )
 
 (def state (atom {}))
@@ -26,13 +24,14 @@
           y (map #(double (* boxsize %)) (range #_(* 0.5 gap) ycount))]
       {:x x :y y :start (rand-nth direction) :color (rand-nth colors) })))
 
-(defn set-up-state [^BufferedImage canvas]
+(defn set-up-state [^BufferedImage canvas args]
   (let [width    (.getWidth canvas)
         height   (.getHeight canvas)
         boxsize  (/ (min width height) 20)
         gap      2
         ;gradient (mapv #(color/set-alpha % 200) (:greens c/gradients))
-        gradient (:greens c/gradients)
+        bgcolor  (get-in c/palettes [:greenpunk :background])
+        gradient (get-in c/palettes [:greenpunk :gradients :standard] )
         colors   (color/palette (color/gradient gradient) 10)
         boxes    (make-boxes boxsize width height gap colors)
        ]
@@ -42,6 +41,7 @@
        :boxsize boxsize
        :colors  colors
        :boxes   boxes
+       :bgcolor bgcolor
        :canvas  (c2dhelper/canvas-from-bufferedimage canvas)})
   ))
 
@@ -65,7 +65,7 @@
         w (:width @state)
         h (:height @state)
         ]
-      (c2d/set-background c Color/BLACK 255)
+      (c2d/set-background c (:bgcolor @state)  255)
       (c2d/set-color c :black)
       (c2d/set-stroke c 3)
       ;(c2d/set-color c color 255)
