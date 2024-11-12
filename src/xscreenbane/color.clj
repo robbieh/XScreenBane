@@ -3,8 +3,7 @@
   (:require [clojure.set]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
-            [clojure2d.color :as c2color]
-            [xscreenbane.config :refer [config]])
+            [clojure2d.color :as c2color])
   (:import [java.io PushbackReader]))
 
 
