@@ -1,23 +1,22 @@
 (ns xscreenbane.hacks.arp-sigils
-  (:require [arp-sigils.sigils :as s]
-            [arp-sigils.glyphs :as g]
-            [arp-sigils.arp :as arp]
+  (:require [xscreenbane.utils.arp-sigils :as s]
+            [xscreenbane.utils.arp-glyphs :as g]
+            [xscreenbane.clojure2d-helper :as c2dhelper]
+            [xscreenbane.utils.cli :as cli]
+            [xscreenbane.fetch.arp :as arp]
+            [xscreenbane.color :as xsb-color]
             [clojure2d.core :as c2d]
-            [clojure2d.color :as color]
-            [clojure2d.pixels :as pix]
-            [clojure2d.extra.signal :as sig]
-            ;[clojure2d.extra.glitch :as glch]
-            [clojure2d.extra.overlays :as ov]
-            [fastmath.core :as fm]
-            ))
+            [clojure2d.color :as color])
+  (:import
+    [java.awt.image BufferedImage]))
 
-(def window)
 
 ;modes
 ;one-sigil
 ;passing-sigils
 ;mandala
-(def state (atom {:mode :new
+(def hackstate (atom {
+                  :mode :new
                   :exception nil
                   :exception-timeout 0
                   }))
@@ -26,17 +25,16 @@
 (def errstate (atom {}))
 (def modes [:one-sigil :passing-sigils])
 (def stroke 3)
-(def palette )
+(def palette (:greenpunk xsb-color/palettes))
 (def color-list [:green :lime :forestgreen :springgreen])
-(declare bgcanvas)
-(declare glchcanvas)
-(declare canvas)
+
+(def hackstate (atom {}))
 
 ;(color/palette (color/gradient [:darkblue [0 50 0] :dark-green]) 100)
 ;(nth pal (nth (:temp @fetch/forecast) x))
 
 (defn reset-state []
-  (reset! state {:mode :new
+  (reset! hackstate {:mode :new
                 :exception nil
                 :exception-timeout 0}))
 
@@ -222,22 +220,22 @@
 
 (defn draw-error [canvas]
   (let [textsz  15
-        exc     (:exception @state)
+        exc     (:exception @hackstate)
         message (.getMessage exc)
         traces  (.getStackTrace exc)
         lines   (filter #(re-matches #".*arp_sigils.*" %) (concat (map str traces)))
-        tmout   (:exception-timeout @state)
+        tmout   (:exception-timeout @hackstate)
         diff    (max 0 (- tmout (System/currentTimeMillis)))  
         ]
     (cond 
       (= 0 tmout)
       (do
-        (swap! state assoc :exception-timeout (+ (* 1000 10) (System/currentTimeMillis)))
+        (swap! hackstate assoc :exception-timeout (+ (* 1000 10) (System/currentTimeMillis)))
         )
       (>= (System/currentTimeMillis) tmout)
       (do
         ;(c2d/with-canvas-> canvas (c2d/line 0 0 1000 1000))
-        (reset! errstate @state)
+        (reset! errstate @hackstate)
         (reset-state)
         ) 
       )
@@ -249,49 +247,38 @@
                      (c2d/text canvas message 10 textsz)
                      (c2d/text canvas (str diff) (- (:w canvas) 200) (- (:h canvas) textsz))
                      (doall (map-indexed #(c2d/text canvas %2 10 (+ 50 (* textsz %1))) lines))
-                     (c2d/text canvas (:mode @state) (- (:w canvas) 200) (- (:h canvas) (* 2 textsz)))
+                     (c2d/text canvas (:mode @hackstate) (- (:w canvas) 200) (- (:h canvas) (* 2 textsz)))
                      )
     ))
 
 (defn draw-one-sigil [canvas]
   (let [hw  (* 1/2 (:w canvas))
         hh  (* 1/2 (:h canvas))
-        cs  (:current-sigil @state)
+        cs  (:current-sigil @hackstate)
         fw  (get-in @sigilmeta [cs :fullwidth])
         hfw (* 1/2 fw) ] 
     (c2d/with-canvas [canref canvas]
-                     (c2d/set-color canref :lime)
+                     (c2d/set-color canref (-> palette :lines :standard :line))
                      ;(c2d/text canref fw 10 10)
                      (c2d/translate canref (- hw hfw) hh)
                      (draw-sigil-pct canref cs 0)
                      )))
 
-(defn mode-mandala []
-  (when-not (:current-sigil @state)
-    (let [sigilkey (rand-nth (keys @sigils))]
-      (swap! state assoc :current-sigil sigilkey)
-      (swap! sigils assoc sigilkey (mac->sigil sigilkey))
-      ))
-  (when-not (:timeout @state)
-    (swap! state assoc :timeout (+ (now) (* 1000 60))))
-  (when (> (now) (:timeout @state))
-    (swap! state assoc :mode :new))
-  )
 
 (defn mode-one-sigil []
-  (when-not (:current-sigil @state)
+  (when-not (:current-sigil @hackstate)
     (let [sigilkey (rand-nth (keys @sigils))]
-      (swap! state assoc :current-sigil sigilkey)
+      (swap! hackstate assoc :current-sigil sigilkey)
       (swap! sigils assoc sigilkey (mac->sigil sigilkey))
       ))
-  (when-not (:timeout @state)
-    (swap! state assoc :timeout (+ (now) (* 1000 60))))
-  (when (> (now) (:timeout @state))
-    (swap! state assoc :mode :new))
+  (when-not (:timeout @hackstate)
+    (swap! hackstate assoc :timeout (+ (now) (* 1000 60))))
+  (when (> (now) (:timeout @hackstate))
+    (swap! hackstate assoc :mode :new))
   )
 
 (defn draw-passing-sigils [canvas]
-  (doseq [sigilkey (:sigil-set @state)]
+  (doseq [sigilkey (:sigil-set @hackstate)]
     (let [sigilm   (get @sigilmeta sigilkey)
           {:keys [x y stroke color speed]} sigilm]
       (c2d/with-canvas [canref canvas]
@@ -306,13 +293,13 @@
       ))
   )
 
-(defn mode-passing-sigils []
-  (when-not (:sigil-set @state)
+(defn mode-passing-sigils [width height]
+  (when-not (:sigil-set @hackstate)
     (let [sigil-set (random-sample 0.3 (keys @sigils)) 
-          sh        (:h canvas)
-          sw        (:w canvas)
+          sh        width
+          sw        height
           ]
-      (swap! state assoc :sigil-set sigil-set)
+      (swap! hackstate assoc :sigil-set sigil-set)
       (doseq [sigilkey sigil-set]
         (let [
               st (inc (rand-int 6))
@@ -335,207 +322,83 @@
                                                     (mac->sigil sigilkey)))
           ))
       ))
-  (if (empty? (remove true? (for [k (:sigil-set @state)] 
+  (if (empty? (remove true? (for [k (:sigil-set @hackstate)] 
                               (let [{:keys [x fullwidth]} (get-in @sigilmeta [k])
                                     rpos (+ x fullwidth)
                                     out (< rpos 0)]
                                 out))))
-    (swap! state assoc :mode :new)))
+    (swap! hackstate assoc :mode :new)))
 
 (defn mode-new 
   "Cleanup state and select new mode randomly"
   []
   (arp/get-macs)
   (update-sigil-map)
-  (swap! state dissoc :current-sigil :timeout :sigil-set)
+  (swap! hackstate dissoc :current-sigil :timeout :sigil-set)
   (let [newmode (rand-nth modes)]
-    (swap! state assoc :mode newmode))
+    (swap! hackstate assoc :mode newmode))
   )
 
-(defn draw-postprocess [bgcanvas glchcanvas canvas]
-  (when-not (:exception @state)
-    ;just blur
-    (comment let [bi (:buffer canvas)]
-             (-> canvas (pix/set-canvas-pixels! (->> (pix/to-pixels bi)
-                                                  (pix/filter-channels (pix/box-blur 3))))))
-    ;glitch lines
-    ;(comment let [p1 (pix/to-pixels (:buffer canvas))
-    ;              p2 (pix/filter-channels (glch/pix2line {:nx 3 :ny 3
-    ;                                                      :scale 3 :tolerance 55
-    ;                                                      :nseed -1 :whole false
-    ;                                                      :shiftx -0.46
-    ;                                                      :shifty 0.66}) p1)
-    ;              ]
-    ;         (-> canvas (pix/set-canvas-pixels! p2)))
-    ;overlay
-    (when (> (rand) 0.99)
-      (let []
-        (c2d/with-canvas-> glchcanvas 
-          (c2d/image (ov/render-crt-scanlines (:buffer canvas))))
-        ))
 
-    )
-  )
 
 (defn draw-testbed [canvas]
   )
 
-
-(def composite-SRC (java.awt.AlphaComposite/getInstance java.awt.AlphaComposite/SRC))
-(defn draw [bgcanvas _ _ _]
-  (try
-    (c2d/with-canvas-> bgcanvas (c2d/set-background :black )) 
-    ;(c2d/with-canvas-> canvas (c2d/set-background :black )) 
-    (c2d/with-canvas-> canvas 
-                       (c2d/set-composite composite-SRC)
-                       (c2d/set-background :black 0.0)
-                       (c2d/set-composite )) 
-
-    (case (:mode @state)
-      :error (draw-error canvas)
-      :new (mode-new)
-      :one-sigil (do (mode-one-sigil) (draw-one-sigil canvas))
-      :passing-sigils (do (mode-passing-sigils) (draw-passing-sigils canvas))
-      nil)
-    ;(draw-postprocess bgcanvas glchcanvas canvas)
-    (draw-testbed canvas)
-    ;(c2d/with-canvas-> bgcanvas (c2d/image glchcanvas))
-    (c2d/with-canvas-> bgcanvas (c2d/image canvas))
-    (catch Exception e
-      (do
-        (swap! state assoc :exception e)
-        (swap! state assoc :mode :error)
-        ))))
-
-(defn start [fullscreen? & wharg]
+(defn set-up-state [^BufferedImage canvas args]
   (arp/get-macs)
   (update-sigil-map)
-  (if fullscreen?
-    (let [w (c2d/screen-width)
-          h (c2d/screen-height)]
-      (def bgcanvas (c2d/canvas w h))
-      (def glchcanvas (c2d/canvas w h))
-      (def canvas (c2d/canvas w h))
-      (def weather-canvas (c2d/canvas w h))
-      (def window 
-        (c2d/show-window {:canvas bgcanvas 
-                          :window-name "arp-sigils"
-                          :draw-fn draw
-                          :fps 30
-                          :position [0 0]
-                          :w w
-                          :h h
-                          })))
-    (let [[w h] wharg]
-      (def bgcanvas (c2d/canvas w h))
-      (def glchcanvas (c2d/canvas w h))
-      (def canvas (c2d/canvas w h))
-      (def window 
-        (c2d/show-window {:canvas bgcanvas 
-                          :window-name "arp-sigils"
-                          :draw-fn draw
-                          :fps 30
-                          :w w
-                          :h h
-                          }
-                         )))
-    )
-    (c2d/with-canvas-> bgcanvas (c2d/set-background :black))
-    (c2d/with-canvas-> glchcanvas (c2d/set-background :black 0.0))
-  )
+  (let [width (.getWidth canvas)
+        height (.getHeight canvas)
+        
+       ]
+    (def bgcanvas (c2d/canvas width height))
+    (when-let  [palette-from-cli (keyword (cli/pair-get args :palette))]
+      (println "Arg pal" palette-from-cli)
+      (when-let [palette-from-config (get xsb-color/palettes palette-from-cli)]
+        (println "found pal" palette-from-config)
+        (alter-var-root #'palette (fn [_] palette-from-config))
+        ))
+    
+    (println "selected palette" palette)
+    ;(alter-var-root #'cx (fn [_] (* 0.5 width)))
+    ;(alter-var-root #'cy (fn [_] (* 0.5 height)))
+    (alter-var-root #'color-list 
+                    (fn [_] (color/palette (-> palette :gradients :standard) 10)))
+    (swap! hackstate assoc :width width)
+    (swap! hackstate assoc :height height)
+    (swap! hackstate merge {:width width
+                        :height height
+                        :maxradius (* 0.5 height)
+                        :mode :new
+                        :exception nil
+                        :exception-timeout 0
+                        :canvas (c2dhelper/canvas-from-bufferedimage canvas)
+                        })
+  ))
 
-(comment
-  (start false 1200 600)
-  (identity @state)
-  (keys @sigils)
-  (first @sigils)
-  (identity @sigilmeta)
-  (:sigil-set @state)
-  (for [k (keys @sigilmeta)]
-    (get-in @sigilmeta [k :x]))
-  (swap! state assoc :mode :passing-sigils)
-  (swap! state dissoc :current-sigil :timeout :sigil-set)
-  (get-in @sigilmeta [(key (first @sigils)) :fullwidth])
-  (keys (get @sigilmeta (key (first @sigils))))
-  (s/calc-length (get @sigils "e4:b9:7a:92:2e:bc") 0)
-  (get-in @sigils [(:current-sigil @state) :fullwidth])
-  (type @sigils)
-  (identity testsigil)
-  (swap! sigils assoc-in [:s1 0 :data :pct] 10)
-  (swap! sigils assoc :s1 testsigil)
-  (with-redefs [g/MS 20 g/-MS -20] 
-               (def testsigil 
-                 (s/size-sigil (-> (s/append-glyph [] :join-line)
-                                 (s/append-glyph-at-line-end , 0 :one)
-                                 (s/append-glyph-at-line-end , 0 :join-line)
-                                 (s/append-glyph-at-line-end , 0 :fifteen)
-                                 (s/append-glyph-at-line-end , 0 :join-line)
-                                 (s/append-glyph-at-line-end , 0 :fifteen)
-                                 (s/append-glyph-at-line-end , 0 :join-line)
-                                 (s/append-glyph-at-line-end , 0 :fifteen)
-                                 (s/attach-child , 1 :fourteen)
-                                 (s/attach-child , 3 :fourteen)
-                                 (s/attach-child , 5 :eleven)
-                                 (s/attach-child , 7 :eight)
-                                 ) 0))
-               )
-  (def gset [:zero :one :two :three :four :five :six :seven :eight :nine :ten :eleven :twelve :thirteen :fourteen :fifteen])
-  (def testsigil 
-    (s/size-sigil (-> (s/append-glyph [] :join-line)
-      (s/append-glyph-at-line-end , 0 (rand-nth gset))
-      (s/append-glyph-at-line-end , 0 :join-line)
-      (s/append-glyph-at-line-end , 0 (rand-nth gset))
-      (s/append-glyph-at-line-end , 0 :join-line)
-      (s/append-glyph-at-line-end , 0 (rand-nth gset))
-      (s/append-glyph-at-line-end , 0 :join-line)
-      (s/append-glyph-at-line-end , 0 (rand-nth gset))
-      (s/append-glyph-at-line-end , 0 :join-line)
-      (s/append-glyph-at-line-end , 0 (rand-nth gset))
-      (s/append-glyph-at-line-end , 0 :join-line)
-      (s/append-glyph-at-line-end , 0 (rand-nth gset))
-      (s/attach-child , 1 (rand-nth gset))
-      (s/attach-child , 3 (rand-nth gset))
-      (s/attach-child , 5 (rand-nth gset))
-      (s/attach-child , 7 (rand-nth gset))
-      (s/attach-child , 9 (rand-nth gset))
-      (s/attach-child , 11 (rand-nth gset))
-    ) 0))
-  (swap! sigils assoc :s1 allsigil)
-  (def allsigil
-    (s/size-sigil (-> (s/append-glyph [] :zero)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :one)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :two)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :three)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :four)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :five)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :six)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :seven)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :eight)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :nine)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :ten)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :eleven)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :twelve)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :thirteen)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :fourteen)
-                    (s/append-glyph-at-line-end , 0 :join-line)
-                    (s/append-glyph-at-line-end , 0 :fifteen)
-                    ) 0))
 
-  (c2d/with-canvas [canref canvas]
-                   (line-pct canref 50 0 0 1000 1000))
-  
-  )
+
+(defn draw [^BufferedImage _]
+  (let
+    [canvas (:canvas @hackstate)
+     width (:width @hackstate)
+     height (:height @hackstate) ]
+
+    (try
+      (c2d/set-color canvas (:background palette))
+      (c2d/rect canvas 0 0 width height)
+
+      (case (:mode @hackstate)
+        :error (draw-error canvas)
+        :new (mode-new)
+        :one-sigil (do (mode-one-sigil) (draw-one-sigil canvas))
+        :passing-sigils (do (mode-passing-sigils width height) (draw-passing-sigils canvas))
+        nil)
+      (catch Exception e
+        (do
+          (swap! hackstate assoc :exception e)
+          (swap! hackstate assoc :mode :error)
+          )))))
+
+
+
