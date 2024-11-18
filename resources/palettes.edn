@@ -5,10 +5,10 @@
              :lines {
                :standard  {:line :green :fill :darkgreen}
                :near      {:line :lime :fill :green}
-               :alternate {:line :cyan :fill :blue}
-               :highlight {:line :magenta :fill :purple}
-               :alert     {:line :magenta :fill :purple}
-               :warning   {:line :yellow :fill :orange}
+               :alternate {:line "#463cff" :fill :blue}
+               :highlight {:line "#966efa" :fill :purple} 
+               :alert     {:line "#966efa" :fill :purple}
+               :warning   {:line :yellow :fill :orange}  
                }
              :gradients {
                :standard ["#00ff88" "#88ff00"]
@@ -23,3 +23,4 @@
 
              }
  }
+;(apply str (map #(Integer/toString % 16) [70 60 255] ))
