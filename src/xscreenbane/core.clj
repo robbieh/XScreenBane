@@ -4,7 +4,8 @@
     [com.sun.jna.platform.unix X11]
     [com.sun.jna.platform.unix X11$XGCValues X11$Window X11$XWindowAttributes]
     [java.awt.image BufferedImage])
-  (:require [xscreenbane.hacks.hack :as hack])
+  (:require [xscreenbane.hacks.hack :as hack]
+            [signal.handler :refer [on-signal]])
   (:gen-class)
   )
 
@@ -98,6 +99,24 @@
       (xput canvas)
       (recur))))
 
+
+(comment 
+  (setup 0x3800007)
+  (def set-up-state (requiring-resolve (symbol "xscreenbane.hacks.arcs" "set-up-state")))
+  (def draw (requiring-resolve (symbol "xscreenbane.hacks.arcs" "draw")))
+
+  (def set-up-state (requiring-resolve (symbol "xscreenbane.hacks.arp-sigils" "set-up-state")))
+  (def draw (requiring-resolve (symbol "xscreenbane.hacks.arp-sigils" "draw")))
+  (set-up-state canvas [:palette :greenpunk])
+  (do (draw canvas) (xput canvas))
+  (future 
+    (repeatedly 100 #(do 
+                     ;(Thread/sleep 10)
+                     (draw canvas) 
+                     (xput canvas)
+                     )))
+  )
+
 (defn -main-old [& args]
   (when-not (System/getenv "DISPLAY")
     (println "Please set the $DISPLAY")
@@ -131,6 +150,7 @@
          (ns-unalias 'xscreenbane.core 'hack)
   (require-hack "dirty-window")
   (require-hack "arcs")
+  (require-hack "arp-sigils")
   (setup 0x3800007)
   (hack/set-up-state canvas [:palette :greenpunk])
   (hack/set-up-state canvas [:palette :craftsman])
