@@ -16,13 +16,6 @@
   )
 
 ;arc: {:radius :length :color :cap} ... possibly direction, speed
-;
-; established |----| main
-; syn_sent    <----  main
-; listening   --O--  highlight
-; close_wait  ----<  alert
-; time_wait   -|--|- alert
-; closed      ------ inactive
 
 (def palette (:greenpunk xsb-color/palettes))
 (def hackstate (atom {}))
@@ -63,12 +56,17 @@
       )
     ;else add it
     (transform [ATOM :arcs lport]
-               (fn [x] (merge {:radius (* (:arcwidth @hackstate) lport)
-                :length (* 0.1 (inc (Integer/parseInt sockrefs)))
-                :color  (get state-color-map state)
-                :cap nil
-                :speed (+ 0.001 (* 0.01 (rand)))
-                :theta 0 }))
+               (fn [x] (merge 
+                         {:radius (* (:arcwidth @hackstate) lport)
+                          :length (* 0.1 (inc (Integer/parseInt sockrefs)))
+                          :color  (get state-color-map state)
+                          :lport lport
+                          :portstate state
+                          :speed (if (= "0A" state) 
+                                   (- (+ 0.001 (* 0.01 (rand))))
+                                   (+ 0.001 (* 0.01 (rand)))
+                                   )
+                          :theta 0 }))
                hackstate)))
 
 
@@ -136,8 +134,8 @@
         (println "found pal" palette-from-config)
         (alter-var-root #'palette (fn [_] palette-from-config))
         (alter-var-root #'state-color-map (fn [_] {
-                                             "01" (get-in palette [:lines :standard :line] )
-                                             "02" (get-in palette [:lines :alert :line] )
+                                             "01" (get-in palette [:lines :standard :line] )   ;
+                                             "02" (get-in palette [:lines :alert :line] )      ;
                                              "03" (get-in palette [:lines :alert :line] )
                                              "04" (get-in palette [:lines :alternate :line] )
                                              "05" (get-in palette [:lines :alternate :line] )
@@ -153,6 +151,7 @@
     (println "selected palette" palette)
     (c2d/set-font canvas "Hack")
     (c2d/set-font-attributes canvas 30)
+    (c2d/set-stroke canvas 2)
     (alter-var-root #'cx (fn [_] (* 0.5 width)))
     (alter-var-root #'cy (fn [_] (* 0.5 height)))
     (swap! hackstate assoc :width width)
@@ -160,7 +159,7 @@
     (swap! hackstate merge {:width width
                         :height height
                         :maxradius (* 0.5 height)
-                        :arcwidth (/ (* 1 height) 65536)  
+                        :arcwidth (double (/ (* 1 height) 65536)  )
                         :arcs {}
                         :closed {}
                         :canvas  canvas
@@ -175,7 +174,7 @@
 
 (defn draw-label [^clojure2d.core.Canvas canvas color text x y texth]
   (c2d/set-color canvas (get-in palette [:lines :near :line]))
-  (c2d/rect canvas x y texth texth true)
+  ;(c2d/rect canvas x y texth texth true)
   (c2d/text canvas text (+ x texth) (+ y texth))
   (c2d/set-color canvas (get state-color-map color))
   (c2d/rect canvas (+ x 2 ) (+ y 2) (- texth 2) (- texth 2 ))
@@ -208,7 +207,10 @@
     (c2d/set-color canvas (:background palette))
     (c2d/rect canvas 0 0 width height)
     ;(println (count (:arcs @hackstate)))
-    (doseq [[_portnum {:keys [radius length color theta]}] (:arcs @hackstate)]
+    (doseq [[_portnum {:keys [radius length color theta lport portstate]}] (:arcs @hackstate)
+            :let [x (+ cx (* 0.5 radius (Math/cos theta)))
+                  y (+ cy (* -0.5 radius (Math/sin theta)))
+                  ]]
     ;(doseq [port (map :lport @tcpp/open-ports)] 
       ;(let [{:keys [radius length color theta]} (get-in @hackstate [:arcs port])]
       ;(println radius length color theta)
@@ -216,14 +218,37 @@
       (c2d/set-color canvas color)
       ;(let [arc (new Arc2D$Float cx cy radius radius theta length Arc2D/OPEN)] (.draw g arc))
       (c2d/arc canvas cx cy radius radius theta length )
+      ;(println lport (double radius) theta x y)
+      ;
+      ; 1 established |----| main
+      ; 2 syn_sent    <----  main
+      ; 10 listening   --O--  highlight
+      ; 8 close_wait  ----<  alert
+      ; 6 time_wait   -|--|- alert
+      ; closed      ------ inactive
+      (case portstate
+        "02" (c2d/ellipse canvas x y 6 6 )
+        "03" (c2d/ellipse canvas x y 6 6 )
+        "09" (let [
+                   x2 (+ cx (* 0.5 radius (Math/cos (+ 0.01 theta))))
+                   y2 (+ cy (* -0.5 radius (Math/sin (+ 0.01 theta))))
+                   x3 (+ cx (* 0.5 radius (Math/cos (+ 0.02 theta))))
+                   y3 (+ cy (* -0.5 radius (Math/sin (+ 0.02 theta))))
+                   ]
+               (c2d/ellipse canvas x y 6 6 )
+               (c2d/ellipse canvas x2 y2 6 6 )
+               (c2d/ellipse canvas x3 y3 6 6 )
+               )
+        nil
+        )
       )
-    (doseq [[_portnum {:keys [radius length color theta]}] (:closed @hackstate)]
-      (c2d/set-color canvas (get-in palette [:lines :near :line]))
+    (doseq [[_portnum {:keys [radius length color theta]}] (:closed @hackstate)
+            ]
+      (c2d/set-color canvas (get-in palette [:gradients :new-old 1]))
       (c2d/arc canvas cx cy radius radius theta length )
       )
     (when (> (:legend-endtime @hackstate) (System/currentTimeMillis))
-      (draw-legend canvas)
-           )
+      (draw-legend canvas))
     )
     ;(c2d/arc g cx cy 10 10 0 100 )
   )
