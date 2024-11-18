@@ -82,10 +82,16 @@
   ))
 
 (defn update-sigil-map []
-  (doseq [mac @arp/macs
+  (if (= 0 (count @arp/macs))  ;put in a single all-zeroes mac if the list is empty
+    (let [mac "00:00:00:00:00:00"
+          fullwidth (s/calc-length (get @sigils mac) 0)]
+      (swap! sigils assoc mac (mac->sigil mac))
+      (swap! sigilmeta assoc mac {:fullwidth fullwidth}))
+    ;else
+    (doseq [mac @arp/macs
           :let [fullwidth (s/calc-length (get @sigils mac) 0)]]
-    (swap! sigils assoc mac (mac->sigil mac))
-    (swap! sigilmeta assoc mac {:fullwidth fullwidth})))
+      (swap! sigils assoc mac (mac->sigil mac))
+      (swap! sigilmeta assoc mac {:fullwidth fullwidth}))))
 
 (defn negpoint "return negative of x,y in a point" [[x y]]
   [(- x) (- y)])
@@ -224,6 +230,8 @@
         message (.getMessage exc)
         traces  (.getStackTrace exc)
         lines   (filter #(re-matches #".*arp_sigils.*" %) (concat (map str traces)))
+        lines   (concat lines (map str @hackstate))
+        lines   (concat lines (map str @sigils))
         tmout   (:exception-timeout @hackstate)
         diff    (max 0 (- tmout (System/currentTimeMillis)))  
         ]
@@ -272,7 +280,7 @@
       (swap! sigils assoc sigilkey (mac->sigil sigilkey))
       ))
   (when-not (:timeout @hackstate)
-    (swap! hackstate assoc :timeout (+ (now) (* 1000 60))))
+    (swap! hackstate assoc :timeout (+ (now) (* 1000 30))))
   (when (> (now) (:timeout @hackstate))
     (swap! hackstate assoc :mode :new))
   )
@@ -295,19 +303,23 @@
 
 (defn mode-passing-sigils [width height]
   (when-not (:sigil-set @hackstate)
-    (let [sigil-set (random-sample 0.3 (keys @sigils)) 
+    (let [
+          ;setcount  (count @sigils)   
+          ;howmany   (-> setcount (* 0.5) int dec rand-int inc)
+          ;sigil-set (take howmany (keys @sigils))  
+          sigil-set (keys @sigils)
           sh        width
           sw        height
           ]
       (swap! hackstate assoc :sigil-set sigil-set)
       (doseq [sigilkey sigil-set]
         (let [
-              st (inc (rand-int 6))
+              st (+ 2 (rand-int 7))
               ;ms (-> (rand-int 6) inc (* 10))
               ms (* st 10)
               y (rand-int sh)
               len (get-in @sigilmeta [sigilkey :fullwidth])
-              x (+ sw (rand-int (* 1/2 len)))
+              x (+ sw (rand-int (* st 0.5 len )))
               color (rand-nth color-list)
               ]
           (swap! sigilmeta 
@@ -316,13 +328,14 @@
                                                        :stroke st
                                                        :y y
                                                        :x x
-                                                       :speed ( * 1/3 (- 7 st))
+                                                       ;:speed ( * 1/3 (- 7 st))
+                                                       :speed (* 0.3 st)
                                                        }})
           (swap! sigils assoc sigilkey (with-redefs [g/MS ms g/-MS (- ms)]
                                                     (mac->sigil sigilkey)))
           ))
       ))
-  (if (empty? (remove true? (for [k (:sigil-set @hackstate)] 
+  (when (empty? (remove true? (for [k (:sigil-set @hackstate)] 
                               (let [{:keys [x fullwidth]} (get-in @sigilmeta [k])
                                     rpos (+ x fullwidth)
                                     out (< rpos 0)]
@@ -335,7 +348,8 @@
   (arp/get-macs)
   (update-sigil-map)
   (swap! hackstate dissoc :current-sigil :timeout :sigil-set)
-  (let [newmode (rand-nth modes)]
+  (let [newmode (rand-nth modes)
+        ]
     (swap! hackstate assoc :mode newmode))
   )
 
@@ -363,7 +377,16 @@
     ;(alter-var-root #'cx (fn [_] (* 0.5 width)))
     ;(alter-var-root #'cy (fn [_] (* 0.5 height)))
     (alter-var-root #'color-list 
-                    (fn [_] (color/palette (-> palette :gradients :standard) 10)))
+                    (fn [_]  
+                      (concat 
+                        (color/palette (-> palette :gradients :standard) 10)
+                        [
+                         (-> palette :lines :near :line)
+                         (-> palette :lines :alternate :line)
+                         (-> palette :lines :highlight :line)
+                         ]
+                        )
+                      ))
     (swap! hackstate assoc :width width)
     (swap! hackstate assoc :height height)
     (swap! hackstate merge {:width width
