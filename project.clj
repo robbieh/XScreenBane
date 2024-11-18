@@ -10,6 +10,7 @@
                  [generateme/fastmath "2.2.1" :exclusions [com.github.haifengl/smile-mkl org.bytedeco/openblas]]
                  [com.github.oshi/oshi-core "6.6.3"]
                  [com.rpl/specter "1.1.4"]
+                 [spootnik/signal "0.2.5"]
                  ]
   ;:main ^:skip-aot xscreenbane.core
   ;:main xscreenbane.core
