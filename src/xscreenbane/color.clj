@@ -15,6 +15,7 @@
 
 
 (def palettes 
+  "Map of palettes merged from internal resources and local config files"
   (let [config-files [
                      (io/file (System/getenv "HOME") ".xscreenbane-palettes.edn")
                      (io/file (System/getenv "HOME") ".config" "xscreenbane" "palettes.edn")
@@ -31,11 +32,5 @@
      (mapv edn/read)
      ;add a spec step here, once the spec is known
      (apply merge resource-config)
-     ;(select  [(recursive-path [] p (if-path map? (continue-then-stay MAP-VALS p))) MAP-VAL])
-     ;(select  [(recursive-path [] p (if-path map? [p MAP-VALS])) ])
-     ;(select  [(recursive-path [] p (if-path map? [MAP-VALS p] [STAY]))] )
      (transform [(recursive-path [] nxt (if-path map? [MAP-VALS nxt] [STAY])) (if-path vector? [ALL] [STAY])] c2color/color)
-     ;(transform [(recursive-path [] p (if-path map? (continue-then-stay MAP-VALS p))) k c2color/color )
-     
-     ))
-  )
+     )))

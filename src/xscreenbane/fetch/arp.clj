@@ -9,7 +9,7 @@
     (string/split #"\n")))
 
 (defn match-macs [arplines]
-  (->> (run-arp)
+  (->> arplines
     (map #(first (re-seq #"..:..:..:..:..:.." %)) )
     (remove nil?)))
 

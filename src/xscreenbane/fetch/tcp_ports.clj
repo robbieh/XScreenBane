@@ -4,6 +4,8 @@
             [clojure.string :as s]
             ))
 
+;TODO: ensure both /proc and OSHI methods for getting data return the same structure
+
 (def open-ports (atom {}))
 
 (def state-map {1 :TCP_ESTABLISHED

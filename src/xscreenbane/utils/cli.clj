@@ -3,14 +3,16 @@
 
 ;(def reserved [:root :window-id :palette])
 
-(defn keywordize-arg [argstr]
+(defn keywordize-arg 
+  [argstr]
   (if (string? argstr)
     (if (= \- (first argstr))
       (keyword (string/replace-first argstr #"-+" ""))
       argstr)
     argstr))
 
-(defn keywordize-args [argl]
+(defn keywordize-args 
+  [argl]
   (mapv keywordize-arg argl))
 
 (defn pair-get 

@@ -3,7 +3,9 @@
   (:import [clojure2d.core Canvas]
            [java.awt.geom Ellipse2D$Double Line2D$Double Rectangle2D$Double Arc2D$Double]))
 
-(defn canvas-from-bufferedimage [bi]
+(defn canvas-from-bufferedimage 
+  "Construct a Clojure2D canvas from a BufferedImage"
+  [bi]
   (Canvas. (.getGraphics bi); graphics
            bi
            (Line2D$Double.)
