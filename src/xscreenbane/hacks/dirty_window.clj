@@ -103,8 +103,8 @@
     )))
 
 (defn draw-dirty []
-  (print "clean count: " (count (:clean @hackstate)))
-  (println " dirty count: " (count (:dirty @hackstate)))
+  ;(print "clean count: " (count (:clean @hackstate)))
+  ;(println " dirty count: " (count (:dirty @hackstate)))
   (doseq [[xidx yidx] (:dirty @hackstate)
           :let [
                 canvas (:canvas @hackstate)
@@ -216,14 +216,14 @@
         box-percent (Math/ceil (* dcount (/ 100 bcount)))
         diff   (- percent box-percent)
         ]
-    (println "udcl: dirty " percent " shown " box-percent  " diff " diff)
+    ;(println "udcl: dirty " percent " shown " box-percent  " diff " diff)
     (cond
       (> diff 0) ;more dirty than shown
         (let [taken (take diff (:clean @hackstate))
               left  (drop diff (:clean @hackstate))
               dirty (concat (:dirty @hackstate) taken)
               ]
-          (println "removing from clean")
+          ;(println "removing from clean")
           (swap! hackstate assoc :dirty dirty)
           (swap! hackstate assoc :clean left)
           )
@@ -232,8 +232,8 @@
               left  (drop (abs diff) (:dirty @hackstate))
               clean (concat (:clean @hackstate) taken)
               ]
-          (println "removing from dirty: " taken)
-          (println "still dirty: " left)
+          ;(println "removing from dirty: " taken)
+          ;(println "still dirty: " left)
           (swap! hackstate assoc :clean clean)
           (swap! hackstate assoc :dirty left)
           )
@@ -242,7 +242,7 @@
       )
     )
   )
-[(:clean @hackstate) (:dirty @hackstate)]
+;[(:clean @hackstate) (:dirty @hackstate)]
 
 ;k(repeatedly 10 #(do (Thread/sleep 1000) (update-dirty)) )
 (defn draw [^BufferedImage _]

@@ -367,13 +367,13 @@
        ]
     (def bgcanvas (c2d/canvas width height))
     (when-let  [palette-from-cli (keyword (cli/pair-get args :palette))]
-      (println "Arg pal" palette-from-cli)
+      ;(println "Arg pal" palette-from-cli)
       (when-let [palette-from-config (get xsb-color/palettes palette-from-cli)]
-        (println "found pal" palette-from-config)
+        ;(println "found pal" palette-from-config)
         (alter-var-root #'palette (fn [_] palette-from-config))
         ))
     
-    (println "selected palette" palette)
+    ;(println "selected palette" palette)
     ;(alter-var-root #'cx (fn [_] (* 0.5 width)))
     ;(alter-var-root #'cy (fn [_] (* 0.5 height)))
     (alter-var-root #'color-list 

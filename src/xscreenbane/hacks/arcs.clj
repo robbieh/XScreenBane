@@ -127,11 +127,11 @@
         height (.getHeight canvas)
         canvas (c2dhelper/canvas-from-bufferedimage canvas)
        ]
-    (println "Args"  args)
+    ;(println "Args"  args)
     (when-let  [palette-from-cli (keyword (cli/pair-get args :palette))]
-      (println "Arg pal" palette-from-cli)
+      ;(println "Arg pal" palette-from-cli)
       (when-let [palette-from-config (get xsb-color/palettes palette-from-cli)]
-        (println "found pal" palette-from-config)
+        ;(println "found pal" palette-from-config)
         (alter-var-root #'palette (fn [_] palette-from-config))
         (alter-var-root #'state-color-map (fn [_] {
                                              "01" (get-in palette [:lines :standard :line] )   ;
@@ -148,7 +148,7 @@
                                              "0C" (get-in palette [:lines :warning :line] )
                                              } ))))
     
-    (println "selected palette" palette)
+    ;(println "selected palette" palette)
     (c2d/set-font canvas "Hack")
     (c2d/set-font-attributes canvas 30)
     (c2d/set-stroke canvas 2)

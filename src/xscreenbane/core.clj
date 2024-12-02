@@ -4,7 +4,7 @@
     [com.sun.jna.platform.unix X11]
     [com.sun.jna.platform.unix X11$XGCValues X11$Window X11$XWindowAttributes]
     [java.awt.image BufferedImage])
-  (:require [signal.handler :refer [on-signal]])
+  (:require [signal.handler :refer [with-handler]])
   (:gen-class))
 
 
@@ -54,8 +54,12 @@
 ;-window-id?
 (defn run [args]
 
-  (.addShutdownHook (Runtime/getRuntime) 
-                    (Thread. #(cleanup)))
+  (with-handler :term
+    ;(println "caught TERM signal")
+    (Thread. #(cleanup))
+    (System/exit 0))
+
+  ;(.addShutdownHook (Runtime/getRuntime) (Thread. #(cleanup)))
 
   ;get $XSCREENSAVER_WINDOW from environment
   (let [window-id (System/getenv "XSCREENSAVER_WINDOW")
@@ -76,15 +80,19 @@
 
 (comment 
   (setup 0x3800007)
+  (cleanup )
   (def set-up-state (requiring-resolve (symbol "xscreenbane.hacks.arcs" "set-up-state")))
   (def draw (requiring-resolve (symbol "xscreenbane.hacks.arcs" "draw")))
 
   (def set-up-state (requiring-resolve (symbol "xscreenbane.hacks.arp-sigils" "set-up-state")))
   (def draw (requiring-resolve (symbol "xscreenbane.hacks.arp-sigils" "draw")))
+
+  (def set-up-state (requiring-resolve (symbol "xscreenbane.hacks.dirty-window" "set-up-state")))
+  (def draw (requiring-resolve (symbol "xscreenbane.hacks.dirty-window" "draw")))
   (set-up-state canvas [:palette :greenpunk])
   (do (draw canvas) (xput canvas))
-  (repeatedly 100 #(do 
-    ;(Thread/sleep 10)
+  (repeatedly 1000 #(do 
+    (Thread/sleep 100)
     (draw canvas) 
     (xput canvas)
     ))
