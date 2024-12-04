@@ -1,9 +1,49 @@
 
-= XScreenBane - the bane of boredom for your XScreenSaver =
+= XScreenBane - the bane of boredom for your screen =
 
+This is a set of additional hacks for XScreenSaver.
 
+More specifically, this is a Clojure project that intends to work well with
+XScreenSaver on Linux and Mac, while making the hacks easier to code.
+
+Beyond that, I wanted to explore using live data to drive the hacks instead
+of just using randomness to make them interesting.
+
+I would love your feedback here or on Mastodon @nundrum@theatl.social as well
+as contributions of hacks and data sources.
 
 == Installation ==
 
+Download the jar and place it somewhere convenient.
+
+Edit your `.xscreensaver` config file and add the hacks you want to the list of programs:
+
+----
+programs:								       \
+			"arcs" 	java -jar ./bin/xscreenbane.jar arcs	     \n\
+		  "arp-sigils" 	java -jar ./bin/xscreenbane.jar arp-sigils   \n\
+		 "dirty-window"	java -jar ./bin/xscreenbane.jar dirty-window \n\
+----
+
+== Status ==
+
+Generally, this is working for me on a variety of Linux machines. It is untested
+on Macs, and the arp-sigils hack is the one currently set up to work well cross-platform.
+
+Performance hasn't been tested, but that is planned in the future.
+
+Occasionally the JVM process hangs after recieving SIGTERM.
+
 == Development ==
+
+There are two template hacks in `src/xscreenbane/hacks`. One of them is set up
+to use only AWT libraries. The other includes Clojure2D. Using only AWT results
+in slighty faster load times, but is harder to work with. 
+
+Just copy one of the templates to a new file and adjust the namespace line in it.
+There are only two functions required:
+
+* `setup-state` - this will be called once so your hack can initialize the `@hackstate` atom.
+* `draw` - this will be called in a loop for rendering the next frame.
+
 
