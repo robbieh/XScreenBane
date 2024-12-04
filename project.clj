@@ -1,8 +1,7 @@
-(defproject xscreenbane "0.1.0-SNAPSHOT"
-  :description "XScreenBane - more hacks for your XScreenSaver"
+(defproject xscreenbane "0.1.0"
+  :description "XScreenBane - the bane of boredom for your screen"
   :url ""
-  :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
-            :url "https://www.eclipse.org/legal/epl-2.0/"}
+  :license {:name "MIT"}
   :dependencies [[org.clojure/clojure "1.12.0"]
                  [net.java.dev.jna/jna "5.9.0"]
                  [net.java.dev.jna/jna-platform "5.9.0"]
