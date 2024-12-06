@@ -157,8 +157,8 @@
         ycount     (Math/floor (/ height boxsize))
         gap        2
         ;gradient   (mapv #(color/set-alpha % 200) (:greens c/gradients))
-        bgcolor    (get-in c/palettes [:greenpunk :background])
-        gradient   (get-in c/palettes [:greenpunk :gradients :standard])
+        bgcolor    (get-in palette [:background])
+        gradient   (get-in palette [:gradients :standard])
         colors     (color/palette (color/gradient gradient) 10)
         ;boxes      (make-boxes boxsize width height gap colors)
         colorboxes (make-background xcount ycount gradient)
