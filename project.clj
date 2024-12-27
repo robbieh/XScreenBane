@@ -10,6 +10,7 @@
                  [com.github.oshi/oshi-core "6.6.3"]
                  [com.rpl/specter "1.1.4"]
                  [spootnik/signal "0.2.5"]
+                 [amalloy/ring-buffer "1.3.1"]
                  ]
   ;:main ^:skip-aot xscreenbane.core
   ;:main xscreenbane.core
