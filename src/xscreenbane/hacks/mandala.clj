@@ -1,4 +1,5 @@
 (ns xscreenbane.hacks.mandala
+  (:use com.rpl.specter)
   (:require 
     [xscreenbane.utils.cli :as cli]
     [xscreenbane.color :as xsb-color]
@@ -14,12 +15,85 @@
 (def hackstate (atom {}))
 (def palette (:greenpunk xsb-color/palettes))
 
-(def inoct (atom {:rbuf (ring-buffer 60) :last (->>  @netstat/netstat :IpExt :InOctets read-string)}))
-(def outoct (atom {:rbuf (ring-buffer 60) :last (->> @netstat/netstat :IpExt :OutOctets read-string)}))
-(def inbcast (atom {:rbuf (ring-buffer 60) :last (->> @netstat/netstat :IpExt :InBcastPkts )}))
-(def outbcast (atom {:rbuf (ring-buffer 60) :last (->> @netstat/netstat :IpExt :OutBcastPkts )}))
-(def inmcast (atom {:rbuf (ring-buffer 60) :last (->> @netstat/netstat :IpExt :InMcastPkts )}))
-(def outmcast (atom {:rbuf (ring-buffer 60) :last (->> @netstat/netstat :IpExt :OutMcastPkts )}))
+; (def inoct (atom {:rbuf (ring-buffer 60) :last (->>  @netstat/netstat :IpExt :InOctets read-string)}))
+; (def outoct (atom {:rbuf (ring-buffer 60) :last (->> @netstat/netstat :IpExt :OutOctets read-string)}))
+; (def inbcast (atom {:rbuf (ring-buffer 60) :last (->> @netstat/netstat :IpExt :InBcastPkts )}))
+; (def outbcast (atom {:rbuf (ring-buffer 60) :last (->> @netstat/netstat :IpExt :OutBcastPkts )}))
+; (def inmcast (atom {:rbuf (ring-buffer 60) :last (->> @netstat/netstat :IpExt :InMcastPkts )}))
+; (def outmcast (atom {:rbuf (ring-buffer 60) :last (->> @netstat/netstat :IpExt :OutMcastPkts )}))
+
+(def statlist [[:IpExt :InOctets read-string]
+               [:IpExt :OutOctets read-string] 
+               [:IpExt :InBcastPkts identity]
+               [:IpExt :OutBcastPkts identity]
+               [:IpExt :InMcastPkts identity]
+               [:IpExt :OutMcastPkts identity]
+               ])
+
+(defn mk-stat-data [statlist]
+  (netstat/get-netstat)
+  (vec (for [[statgroup stat postproc] statlist]
+    {:rbuf (ring-buffer 60) 
+     :last-val (->> @netstat/netstat statgroup stat postproc)
+     :path [statgroup stat postproc]
+     })))
+
+(comment
+  (reverse (:netstat @hackstate))
+  (select [ATOM :netstat ALL] hackstate)
+  (conj (butlast (first (select [ATOM :netstat ALL :rbuf ] hackstate))) 1)
+  (first (select [ATOM :netstat ALL :rbuf ] hackstate))
+  (transform [ATOM :netstat ALL] update-rbuf hackstate)
+  )
+
+(defn update-rbuf [{:keys [rbuf path last-val]}]
+    (let [[statgroup stat postproc] path
+          new-value  (-> @netstat/netstat statgroup stat postproc)
+          rest-value (conj rbuf 1)
+          diff       (- new-value last-val)
+          diff       (max diff 1)
+          calculated (double (/ (apply max rest-value) diff)) 
+          ]
+      {:rbuf (conj rbuf diff)
+       :last-val new-value
+       :path path
+       :calculated calculated}
+  ))
+
+;(update-rbuf {:rbuf (-> (ring-buffer 10) (conj 1)) :path [:IpExt :InOctets read-string]})
+(defn update-rbuf-old [value bufmap]
+    ;(println (:last @bufmap))
+    (let [diff (- value (-> bufmap deref :last))
+          diff (max diff 1)]
+      ;(println "diff:" diff)
+      (swap! bufmap merge 
+             {:last value
+                           :rbuf (conj (:rbuf @bufmap) diff)
+                           })
+      ;[
+      ;(apply max (:rbuf @inoct))
+      ;(double (/ (apply + (:rbuf @inoct))   (apply max (:rbuf @inoct)) ))
+      (double (/ (apply max (:rbuf @bufmap)) diff  )) 
+      ;(double (/ diff                      (apply max (:rbuf @inoct))))
+      ;]
+      ))
+
+;(defn update-stat-data [statdata]
+;  (for [{:keys [rbuf lastval path]} statdata]
+;    (let [[statgroup stat postproc] path 
+;          value (->> @netstat/netstat statgroup stat postproc)
+;          diff  (- value lastval)
+;          diff  (max diff 1)
+;          ]
+;      {:last value
+;       :rbuf (conj rbuf diff)})
+;      ;(apply max (:rbuf @inoct))
+;      ;(double (/ (apply + (:rbuf @inoct))   (apply max (:rbuf @inoct)) ))
+;      (double (/ (apply max (:rbuf @bufmap)) diff  )) 
+;      ;(double (/ diff                      (apply max (:rbuf @inoct))))
+;      ;]
+;      )
+;    )
 
 (defn set-up-state 
   [^BufferedImage canvas args]
@@ -39,6 +113,10 @@
                        :cy (* 0.5 height)
                        :canvas canvas
                        :sides sides
+                       :netstat (mk-stat-data statlist)
+                       :next-update-time (+ 1000 (System/currentTimeMillis))
+                       :curvatures [0 0 0 0 0 0]
+                       :rotations [0 0 0 0 0 0]
                        :rings {150 (geom/polygon sides 150)
                                300 (geom/polygon sides 300)
                                450 (geom/polygon sides 450)
@@ -46,7 +124,9 @@
                                750 (geom/polygon sides 750)
                                900 (geom/polygon sides 900)
                                }
-                       })))
+                       })
+     (transform [ATOM :netstat ALL] update-rbuf hackstate)
+    ))
 
 (defn ring-shape [pointlist curvature]
   (c2d/path-def->shape (vec (concat [[:move (first pointlist)] ]
@@ -78,15 +158,14 @@
 (radial-gradient-mode (:canvas @hackstate) 
                       (float 0.0) (float 0.0) (float 100.0) [(float 0.0) (float 1.0)] 
                       [(clojure2d.color/awt-color :black) (clojure2d.color/awt-color :white)])
-
 (clojure2d.color/awt-color :yellow)
-
 )
 
-(defn draw-ring [pointlist curvature gradcolor]
+(defn draw-ring [pointlist curvature rotation gradcolor]
   (let [{:keys [canvas cx cy]} @hackstate]
     (c2d/reset-matrix canvas)
     (c2d/translate canvas cx cy)
+    (c2d/rotate canvas rotation)
       (let [shape   (ring-shape pointlist curvature)
             gradrad (-> pointlist first first)
             ;[g1 g2] (mapv clojure2d.color/awt-color (-> palette :gradients :standard))
@@ -117,45 +196,53 @@
 ;(netstat/get-netstat)
 ;(->> netstat/netstat :TcpExt :OutOctets read-string)
 
-(defn update-rbuf [value bufmap]
-    ;(println (:last @bufmap))
-    (let [diff (- value (-> bufmap deref :last))
-          diff (max diff 1)]
-      ;(println "diff:" diff)
-      (swap! bufmap merge {:last value
-                           :rbuf (conj (:rbuf @bufmap) diff)
-                           })
-      ;[
-      ;(apply max (:rbuf @inoct))
-      ;(double (/ (apply + (:rbuf @inoct))   (apply max (:rbuf @inoct)) ))
-      (double (/ (apply max (:rbuf @bufmap)) diff  )) 
-      ;(double (/ diff                      (apply max (:rbuf @inoct))))
-      ;]
-      ))
+(def decay 0.3)
+(defn update-curvature [curvature calculated]
+  (if (> curvature 0)
+    (min 600
+      (+ curvature (- (* 3 decay)) (-> calculated Math/log10 (- 1 ) (* 10))))
+    (max -150
+      (+ curvature (- decay) (-> calculated Math/log10 (- 1 ) (* 10))))
+    )
+  )
+
+(:netstat @hackstate)
+(:rotations @hackstate)
+(:curvatures @hackstate)
+(mapv update-curvature 
+(:curvatures @hackstate)(select [ATOM :netstat ALL :calculated] hackstate))
+(mapv Math/log10 [0 10 100 1000 10000])
 
 (defn draw 
   [^BufferedImage _]
-  (Thread/sleep 250)
-  (netstat/get-netstat)
-  (let [canvas (:canvas @hackstate)
-        width (:width @hackstate)
-        height (:height @hackstate) 
-        inoctsize  (update-rbuf (->> @netstat/netstat :IpExt :InOctets read-string) inoct)
-        outoctsize (update-rbuf (->> @netstat/netstat :IpExt :OutOctets read-string) outoct)
-        inbcastsize (update-rbuf (->> @netstat/netstat :IpExt :InBcastPkts ) inbcast)
-        outbcastsize (update-rbuf (->> @netstat/netstat :IpExt :OutBcastPkts ) outbcast)
-        inmcastsize (update-rbuf (->> @netstat/netstat :IpExt :InBcastPkts ) inmcast)
-        outmcastsize (update-rbuf (->> @netstat/netstat :IpExt :OutBcastPkts ) outmcast)
+  (when (> (System/currentTimeMillis) (:next-update-time @hackstate))
+    (netstat/get-netstat)
+    (transform [ATOM :netstat ALL] update-rbuf hackstate)
+    (swap! hackstate merge {:next-update-time (+ 250 (System/currentTimeMillis))}))
+  (let [{:keys [canvas width height curvatures rotations]} @hackstate
+        ; inoctsize  (update-rbuf (->> @netstat/netstat :IpExt :InOctets read-string) inoct)
+        ; outoctsize (update-rbuf (->> @netstat/netstat :IpExt :OutOctets read-string) outoct)
+        ; inbcastsize (update-rbuf (->> @netstat/netstat :IpExt :InBcastPkts ) inbcast)
+        ; outbcastsize (update-rbuf (->> @netstat/netstat :IpExt :OutBcastPkts ) outbcast)
+        ; inmcastsize (update-rbuf (->> @netstat/netstat :IpExt :InBcastPkts ) inmcast)
+        ; outmcastsize (update-rbuf (->> @netstat/netstat :IpExt :OutBcastPkts ) outmcast)
+        sizes  (select [ATOM :netstat ALL :calculated] hackstate)
+        updated-curvatures (mapv update-curvature curvatures sizes)
         ring-c (count (:rings @hackstate))
         ring-pal (c2color/palette (-> palette :gradients :standard) ring-c)
-        sizes   [inoctsize outoctsize inbcastsize outbcastsize inmcastsize outmcastsize]
+        ; sizes   [inoctsize outoctsize inbcastsize outbcastsize inmcastsize outmcastsize]
         ]
+    (swap! hackstate assoc :curvatures updated-curvatures)
+    ;(swap! hackstate assoc :rotations (mapv + rotations [0.001 0.002 0.003 0.004 0.005 0.006]))
+    (swap! hackstate assoc :rotations (mapv + rotations [0.001 -0.001 0.002 -0.002 0.003 -0.003]))
     (c2d/reset-matrix canvas)
     (c2d/set-color canvas (:background palette))
     (c2d/rect canvas 0 0 width height)
     (c2d/set-color canvas (get-in palette [:lines :standard :line]))
+    ; (doseq [[i ring] (map-indexed vector (-> @hackstate :rings vals reverse))]
+    ;   (draw-ring ring (+ 0 (nth sizes i) ) (nth ring-pal i)))
     (doseq [[i ring] (map-indexed vector (-> @hackstate :rings vals reverse))]
-      (draw-ring ring (+ 0 (nth sizes i) ) (nth ring-pal i)))
+      (draw-ring ring (+ 0 (nth updated-curvatures i) )(nth rotations i) (nth ring-pal i)))
     ))
 
 
