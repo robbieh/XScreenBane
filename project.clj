@@ -1,4 +1,4 @@
-(defproject xscreenbane "0.1.0"
+(defproject xscreenbane "0.1.1"
   :description "XScreenBane - the bane of boredom for your screen"
   :url ""
   :license {:name "MIT"}
